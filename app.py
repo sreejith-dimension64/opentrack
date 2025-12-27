@@ -7,8 +7,18 @@ from werkzeug.utils import secure_filename
 import os
 from image_store import ImageStore
 from migrate_database import example_sqlserver
+from waitress import serve
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
+
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_proto=1,
+    x_host=1,
+    x_port=1,
+    x_prefix=1
+)
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
@@ -242,7 +252,10 @@ def store_database():
         'message': 'Database migration executed'
     }), 200
 
-if __name__ == '__main__':
-    # Run the Flask app
-    # In production, use a WSGI server like gunicorn
-    app.run(host='0.0.0.0', port=5000, debug=True)
+@app.route("/", methods=["GET"])
+def health():
+    return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    serve(app, host="0.0.0.0", port=8000)
