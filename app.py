@@ -9,6 +9,7 @@ from image_store import ImageStore
 from migrate_database import example_sqlserver
 from waitress import serve
 from werkzeug.middleware.proxy_fix import ProxyFix
+import base64
 
 app = Flask(__name__)
 
@@ -255,6 +256,63 @@ def store_database():
 @app.route("/", methods=["GET"])
 def health():
     return {"status": "ok"}
+
+import base64
+
+@app.route('/api/v1/faces/identifyb64', methods=['POST'])
+def identify_face_base64():
+    """
+    Identify a face from the store using a base64 image string
+    
+    JSON Body:
+        - image_base64: Base64 encoded image string (jpg/jpeg/png)
+        - tolerance: Recognition tolerance (optional, default 0.6)
+    
+    Returns:
+        JSON response with user metadata if identified
+    """
+    try:
+        data = request.get_json()
+        if not data or 'image_base64' not in data:
+            return jsonify({'error': 'No image_base64 provided'}), 400
+        
+        image_b64 = data['image_base64']
+        tolerance = data.get('tolerance', 0.6)
+        
+        try:
+            tolerance = float(tolerance)
+        except ValueError:
+            return jsonify({'error': 'tolerance must be a number'}), 400
+        
+        try:
+            # Convert base64 string to bytes
+            image_bytes = base64.b64decode(image_b64)
+        except Exception:
+            return jsonify({'error': 'Invalid base64 string'}), 400
+        
+        # Identify face
+        result = image_store.identify_face(
+            image_bytes=image_bytes,
+            tolerance=tolerance
+        )
+        
+        if result:
+            return jsonify({
+                'identified': True,
+                'user_id': result.get('user_id'),
+                'confidence': result.get('confidence'),
+                'distance': result.get('distance'),
+                'metadata': {k: v for k, v in result.items() 
+                             if k not in ['user_id', 'confidence', 'distance']}
+            }), 200
+        else:
+            return jsonify({
+                'identified': False,
+                'message': 'No matching face found'
+            }), 404
+        
+    except Exception as e:
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
 if __name__ == "__main__":
