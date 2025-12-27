@@ -9,7 +9,7 @@ from image_store import ImageStore
 from migrate_database import example_sqlserver
 from waitress import serve
 from werkzeug.middleware.proxy_fix import ProxyFix
-import base64
+import base64, uuid, os
 
 app = Flask(__name__)
 
@@ -257,7 +257,6 @@ def store_database():
 def health():
     return {"status": "ok"}
 
-import base64
 
 @app.route('/api/v1/faces/identifyb64', methods=['POST'])
 def identify_face_base64():
@@ -289,6 +288,12 @@ def identify_face_base64():
             image_bytes = base64.b64decode(image_b64)
         except Exception:
             return jsonify({'error': 'Invalid base64 string'}), 400
+
+        # Save the image as JPEG for verification
+        guid_filename = f"{uuid.uuid4()}.jpg"
+        save_path = os.path.join("logs", guid_filename)  # adjust folder if needed
+        with open(save_path, "wb") as f:
+            f.write(image_bytes)
         
         # Identify face
         result = image_store.identify_face(
@@ -303,17 +308,15 @@ def identify_face_base64():
                 'confidence': result.get('confidence'),
                 'distance': result.get('distance'),
                 'metadata': {k: v for k, v in result.items() 
-                             if k not in ['user_id', 'confidence', 'distance']}
+                             if k not in ['user_id', 'confidence', 'distance']},
+                'saved_image': guid_filename
             }), 200
         else:
             return jsonify({
                 'identified': False,
-                'message': 'No matching face found'
+                'message': 'No matching face found',
+                'saved_image': guid_filename
             }), 404
         
     except Exception as e:
         return jsonify({'error': f'Server error: {str(e)}'}), 500
-
-
-if __name__ == "__main__":
-    serve(app, host="0.0.0.0", port=8000)
