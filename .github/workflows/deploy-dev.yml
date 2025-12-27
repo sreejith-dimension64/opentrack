@@ -1,9 +1,11 @@
 name: Flask CI/CD
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        default: 'main'
 
 jobs:
   deploy:
