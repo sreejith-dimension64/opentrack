@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  face-recognition-api:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      # Persist the face store data
+      - ./face_store.pkl:/app/face_store.pkl
+      # Persist uploads
+      - ./uploads:/app/uploads
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
